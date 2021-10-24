@@ -1,0 +1,48 @@
+package com.api.padma_public.entities;
+
+import com.api.padma_public.repository.AccountsRepository;
+import org.springframework.stereotype.Component;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import java.util.List;
+
+@Component
+public class AccountsRepoImpl implements AccountsRepository {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    public List<CustomerAccount> getAccountsByPhnNumber(String phn) {
+        Query nativeQuery = entityManager
+                .createNativeQuery("SELECT A.ACC_NO AS accountNumber, MIS.FXN_GET_CATEGORY_NAME(A.CATEGORY) AS productName\n" +
+                        "FROM MIS.T24_CUSTOMER C, MIS.T24_ACCOUNT A\n" +
+                        "WHERE A.CUST_ID = C.CUST_ID AND NVL(C.MOBILE_NO,C.PHONE_NO) ='"+phn+"'");
+        return nativeQuery.getResultList();
+    }
+
+    @Override
+    public List<Object> getAccountInfo(String acc) {
+        Query nativeQuery = entityManager
+                .createNativeQuery("SELECT  ACC_TITLE, ACC_NO, CUST_ID,OPENING_DATE, MIS.FXN_GET_BRANCH_NAME(BRANCH_CODE) BRANCH_NAME , CURRENCY, WORKING_BALANCE FROM  MIS.T24_ACCOUNT A WHERE A.ACC_NO='"+acc+"'");
+        return nativeQuery.getResultList();
+    }
+
+    @Override
+    public List<Object> getAccountStmtByAccNumber(String acc) {
+        Query nativeQuery = entityManager
+                .createNativeQuery("SELECT * from (SELECT  S.BOOKING_DT\n" +
+                        "                    , CONCAT(S.TRANSACTION_NARATIVE"+
+                        "                    ,CONCAT(' - ', MIS.FXN_GET_TRANSACTION_DTLS(TRANSACTION_CODE) )) AS TRANS_DTLS"+
+                        "                    , decode( sign(S.TRANS_AMOUNT),-1,abs(S.TRANS_AMOUNT),0)DEBIT_AMT\n" +
+                        "                    , decode( sign(S.TRANS_AMOUNT),1,abs(S.TRANS_AMOUNT),0)CREDIT_AMT\n" +
+                        "                    ,ABS (S.TRANS_AMOUNT) TRANS_AMOUNT\n" +
+                        "                   \n" +
+                        "                    FROM MIS.T24_STMT_ENTRY S WHERE S.ACC_NO = '"+acc+"'" +
+                        "                    ORDER BY S.BOOKING_DT DESC, S.TRANS_TP DESC)\n" +
+                        "                    where ROWNUM <=5");
+        return nativeQuery.getResultList();
+    }
+}
